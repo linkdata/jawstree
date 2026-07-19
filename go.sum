@@ -1,0 +1,15 @@
+github.com/coder/websocket v1.8.15 h1:6B2JPeOGlpff2Uz6vOEH1Vzpi0iUz20A+lPVhPHtNUA=
+github.com/coder/websocket v1.8.15/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
+github.com/linkdata/deadlock v0.5.5 h1:d6O+rzEqasSfamGDA8u7bjtaq7hOX8Ha4Zn36Wxrkvo=
+github.com/linkdata/deadlock v0.5.5/go.mod h1:tXb28stzAD3trzEEK0UJWC+rZKuobCoPktPYzebb1u0=
+github.com/linkdata/jaws v0.601.0 h1:Jl3pQMRzCvVnyAFBCoxXYMgia5FH5YNGtSVLkEqKblA=
+github.com/linkdata/jaws v0.601.0/go.mod h1:puCGBoFiicGeCG9UaKb0k7Sn6edB2mxAt5YKkhjB6Pc=
+github.com/linkdata/jq v0.1.1 h1:PY5t/m3VsK/8QOc+yDMNlYCk3b3NjW26daXZvhypHQA=
+github.com/linkdata/jq v0.1.1/go.mod h1:b76MMuWybyXrVEKSHJkv+r5IEattnghPf1bNRJ5PNlE=
+github.com/linkdata/secureheaders v1.1.1 h1:QTyNCv7b7YvUnQhiePvTObM4vsCcwPxLaLf/kR6q1Pk=
+github.com/linkdata/secureheaders v1.1.1/go.mod h1:50TiKmPaWki8gIZXmBxrLUinyJst12YuN3EbsXZMO+4=
+github.com/linkdata/staticserve v1.1.8 h1:qpm0dAaAsik1YrETSiMoS7ciBL9qPVNUFcfdio/ol84=
+github.com/linkdata/staticserve v1.1.8/go.mod h1:uOUrHkbNEkVXWvuw7gk0ydm39r9Y1ReZA9o4aWF+hgc=
+github.com/petermattis/goid v0.0.0-20250813065127-a731cc31b4fe/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
+github.com/petermattis/goid v0.0.0-20260330135022-df67b199bc81 h1:WDsQxOJDy0N1VRAjXLpi8sCEZRSGarLWQevDxpTBRrM=
+github.com/petermattis/goid v0.0.0-20260330135022-df67b199bc81/go.mod h1:pxMtw7cyUw6B2bRH0ZBANSPg+AoSud1I1iyJHI69jH4=
