@@ -1,0 +1,1128 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+		<title>jawstree: Go Coverage Report</title>
+		<style>
+			body {
+				background: black;
+				color: rgb(80, 80, 80);
+			}
+			body, pre, #legend span {
+				font-family: Menlo, monospace;
+				font-weight: bold;
+			}
+			#topbar {
+				background: black;
+				position: fixed;
+				top: 0; left: 0; right: 0;
+				height: 42px;
+				border-bottom: 1px solid rgb(80, 80, 80);
+			}
+			#content {
+				margin-top: 50px;
+			}
+			#nav, #legend {
+				float: left;
+				margin-left: 10px;
+			}
+			#legend {
+				margin-top: 12px;
+			}
+			#nav {
+				margin-top: 10px;
+			}
+			#legend span {
+				margin: 0 5px;
+			}
+			.cov0 { color: rgb(192, 0, 0) }
+.cov1 { color: rgb(128, 128, 128) }
+.cov2 { color: rgb(116, 140, 131) }
+.cov3 { color: rgb(104, 152, 134) }
+.cov4 { color: rgb(92, 164, 137) }
+.cov5 { color: rgb(80, 176, 140) }
+.cov6 { color: rgb(68, 188, 143) }
+.cov7 { color: rgb(56, 200, 146) }
+.cov8 { color: rgb(44, 212, 149) }
+.cov9 { color: rgb(32, 224, 152) }
+.cov10 { color: rgb(20, 236, 155) }
+
+		</style>
+	</head>
+	<body>
+		<div id="topbar">
+			<div id="nav">
+				<select id="files">
+				
+				<option value="file0">github.com/linkdata/jawstree/node.go (100.0%)</option>
+				
+				<option value="file1">github.com/linkdata/jawstree/render.go (100.0%)</option>
+				
+				<option value="file2">github.com/linkdata/jawstree/root.go (100.0%)</option>
+				
+				<option value="file3">github.com/linkdata/jawstree/setup.go (100.0%)</option>
+				
+				<option value="file4">github.com/linkdata/jawstree/tree.go (100.0%)</option>
+				
+				</select>
+			</div>
+			<div id="legend">
+				<span>not tracked</span>
+			
+				<span class="cov0">no coverage</span>
+				<span class="cov1">low coverage</span>
+				<span class="cov2">*</span>
+				<span class="cov3">*</span>
+				<span class="cov4">*</span>
+				<span class="cov5">*</span>
+				<span class="cov6">*</span>
+				<span class="cov7">*</span>
+				<span class="cov8">*</span>
+				<span class="cov9">*</span>
+				<span class="cov10">high coverage</span>
+			
+			</div>
+		</div>
+		<div id="content">
+		
+		<pre class="file" id="file0" style="display: none">package jawstree
+
+import (
+        "encoding/json"
+        "slices"
+        "strconv"
+        "unicode/utf8"
+)
+
+// Node is one tree node rendered by [Tree].
+//
+// Concurrency: once the owning [Tree] has been rendered, its Node tree is shared
+// with the JaWS event goroutines, which access it under the Tree's lock. The
+// exported Node accessors below are not internally synchronized, so callers must
+// hold that lock when using them on a rendered Tree: the Tree's read lock (RLock)
+// for the read-only helpers ([Node.Walk], [Node.HasNames], [Node.GetNames],
+// [Node.GetSelected], [Node.MarshalJSON]). No locking is needed before the Tree is
+// rendered (for example while building it in [New]).
+//
+// The struct json tags are documentation only: the wire encoding sent to Quercus.js
+// is produced by [Node.MarshalJSON], and Disabled is emitted inverted (as
+// "selectable":false), so the tags do not all mirror the wire shape.
+type Node struct {
+        Parent   *Node   `json:"-"`                 // parent node, set by New, nil for root
+        Name     string  `json:"name"`              // display name; do not change after New (see [Tree])
+        ID       string  `json:"id,omitzero"`       // positional JSON path, set by New; also the DOM data-id
+        Selected bool    `json:"selected,omitzero"` // selected state
+        Disabled bool    `json:"disabled,omitzero"` // emitted as "selectable":false (inverted) on the wire
+        Children []*Node `json:"children,omitzero"` // child nodes
+}
+
+// appendJSONString appends s as a JSON string literal. Unlike
+// [strconv.AppendQuote] it always produces valid JSON: invalid UTF-8 is replaced
+// with U+FFFD rather than emitted as a Go-only \xNN escape (which would break
+// JSON.parse on the client). Marshaling a string never returns an error.
+func appendJSONString(b []byte, s string) []byte <span class="cov5" title="31935">{
+        enc, _ := json.Marshal(s)
+        return append(b, enc...)
+}</span>
+
+// jsonStringLen reports how many bytes s occupies as a wire JSON string literal
+// (surrounding quotes plus escaping, matching [appendJSONString] and encoding/json),
+// but stops once the running length exceeds limit and returns a value greater than
+// limit. It never allocates, so New can weigh an untrusted [Node.Name] — and reject an
+// over-long or escape-heavy one — without encoding a full copy of it.
+func jsonStringLen(s string, limit int64) int64 <span class="cov7" title="543460">{
+        n := int64(2) // the surrounding quotes
+        for i := 0; i &lt; len(s); </span><span class="cov10" title="137067583">{
+                if n &gt; limit </span><span class="cov1" title="4">{
+                        return n
+                }</span>
+                <span class="cov9" title="137067579">if c := s[i]; c &lt; utf8.RuneSelf </span><span class="cov9" title="137067570">{
+                        switch </span>{
+                        case c == '"' || c == '\\' || c == '\b' || c == '\f' || c == '\n' || c == '\r' || c == '\t':<span class="cov1" title="6">
+                                n += 2</span>
+                        case c &lt; 0x20 || c == '&lt;' || c == '&gt;' || c == '&amp;':<span class="cov1" title="5">
+                                n += 6</span> // control bytes and the HTML-escaped set become \u00xx
+                        default:<span class="cov9" title="137067559">
+                                n++</span>
+                        }
+                        <span class="cov9" title="137067570">i++
+                        continue</span>
+                }
+                <span class="cov2" title="9">switch r, size := utf8.DecodeRuneInString(s[i:]); </span>{
+                case r == utf8.RuneError &amp;&amp; size == 1:<span class="cov1" title="4">
+                        n += 6 // invalid UTF-8 becomes the \ufffd escape
+                        i++</span>
+                case r == '\u2028' || r == '\u2029':<span class="cov1" title="2">
+                        n += 6 // the JSON line/paragraph separators are escaped
+                        i += size</span>
+                default:<span class="cov1" title="3">
+                        n += int64(size)
+                        i += size</span>
+                }
+        }
+        <span class="cov7" title="543456">return n</span>
+}
+
+func (node *Node) marshalJSON(b []byte) []byte <span class="cov5" title="15985">{
+        b = append(b, `{"name":`...)
+        b = appendJSONString(b, node.Name)
+        if node.ID != "" </span><span class="cov5" title="15950">{
+                b = append(b, `,"id":`...)
+                b = appendJSONString(b, node.ID)
+        }</span>
+        <span class="cov5" title="15985">if node.Selected </span><span class="cov1" title="5">{
+                b = append(b, `,"selected":true`...)
+        }</span>
+        <span class="cov5" title="15985">if node.Disabled </span><span class="cov1" title="6">{
+                // Quercus.js expects "selectable"; the server tracks the inverse (Disabled).
+                b = append(b, `,"selectable":false`...)
+        }</span>
+        <span class="cov5" title="15985">b = append(b, `,"children":[`...)
+        first := true
+        for _, c := range node.Children </span><span class="cov5" title="13746">{
+                if c == nil </span><span class="cov1" title="1">{ // defensive: New strips nil children before rendering
+                        continue</span>
+                }
+                <span class="cov5" title="13745">if !first </span><span class="cov5" title="12019">{
+                        b = append(b, ',')
+                }</span>
+                <span class="cov5" title="13745">first = false
+                b = c.marshalJSON(b)</span>
+        }
+        <span class="cov5" title="15985">b = append(b, "]}"...)
+        return b</span>
+}
+
+// MarshalJSON writes the Quercus.js JSON shape for node.
+func (node Node) MarshalJSON() (b []byte, err error) <span class="cov4" title="2217">{
+        // The receiver is a value, not a pointer, so json.Marshal routes both a Node and a
+        // *Node here; a pointer receiver would let a non-addressable Node value fall back to
+        // the struct tags and emit a different shape ("disabled":true, not "selectable":false).
+        // marshalJSON is the canonical encoder; MarshalJSON just delegates to it.
+        b = node.marshalJSON(nil)
+        return
+}</span>
+
+var (
+        _ json.Marshaler = Node{}
+        _ json.Marshaler = (*Node)(nil)
+)
+
+// Walk calls fn for node and all descendants with their JSON paths.
+//
+// node is visited with the supplied jsPath; callers pass "" for the root. Each
+// descendant is visited with "children.&lt;i&gt;" appended to its parent's path, where i
+// is the child's index in node.Children. A nil child is skipped while i keeps the
+// raw slice index, so on a Tree built by [New] — where [Node.stripNilChildren] has
+// already removed nil entries — these indices stay dense and match the wire
+// positions emitted by [Node.marshalJSON].
+func (node *Node) Walk(jsPath string, fn func(jsPath string, node *Node)) <span class="cov4" title="2691">{
+        fn(jsPath, node)
+        if jsPath != "" </span><span class="cov4" title="2474">{
+                jsPath += "."
+        }</span>
+        <span class="cov4" title="2691">for i, child := range node.Children </span><span class="cov4" title="2475">{
+                if child == nil </span><span class="cov1" title="1">{ // defensive: New strips nil children before rendering
+                        continue</span>
+                }
+                <span class="cov4" title="2474">child.Walk(jsPath+"children."+strconv.Itoa(i), fn)</span>
+        }
+}
+
+// HasNames reports whether node matches names as a path from the root.
+//
+// The root (nil Parent) matches only an empty names slice. The match walks the
+// parent chain, comparing each name against the corresponding ancestor, so a call
+// is O(len(names)); resolving large selections over deep trees is therefore
+// O(nodes x depth x paths).
+func (node *Node) HasNames(names []string) (yes bool) <span class="cov4" title="797">{
+        if node.Parent == nil </span><span class="cov3" title="474">{
+                return len(names) == 0
+        }</span>
+        <span class="cov3" title="323">if len(names) == 0 </span><span class="cov1" title="1">{
+                return false
+        }</span>
+        <span class="cov3" title="322">return node.Name == names[len(names)-1] &amp;&amp; node.Parent.HasNames(names[:len(names)-1])</span>
+}
+
+// GetNames returns the path of names from the root to node.
+func (node *Node) GetNames() (names []string) <span class="cov2" title="48">{
+        for node.Parent != nil </span><span class="cov2" title="59">{
+                names = append(names, node.Name)
+                node = node.Parent
+        }</span>
+        <span class="cov2" title="48">slices.Reverse(names)
+        return</span>
+}
+
+// GetSelected returns the name-paths (root-to-node name lists) of all selected nodes.
+//
+// Selection is reported by name-path, not by the unique node identity used on the
+// wire. If sibling nodes share the same name their name-paths are identical, so the
+// round-trip is lossy: [Tree.SetSelected] cannot tell them apart and selects every
+// sibling sharing a selected name-path. Give siblings distinct names if they must be
+// addressed independently through this API, or use the index-based wire selection.
+func (node *Node) GetSelected() (nameLists [][]string) <span class="cov3" title="214">{
+        node.Walk("", func(jsPath string, node *Node) </span><span class="cov3" title="476">{
+                if node.Selected </span><span class="cov2" title="47">{
+                        nameLists = append(nameLists, node.GetNames())
+                }</span>
+        })
+        <span class="cov3" title="214">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file1" style="display: none">package jawstree
+
+import (
+        "encoding/json"
+        "fmt"
+        "io"
+
+        "github.com/linkdata/jaws"
+        "github.com/linkdata/jaws/lib/htmlio"
+)
+
+var (
+        _ jaws.UI           = (*Tree)(nil)
+        _ jaws.InputHandler = (*Tree)(nil)
+)
+
+// JawsRender writes the hidden tree container and schedules its browser
+// initialization.
+//
+// The current selection is included in the initializer, so a freshly rendered client
+// is correct before any update arrives. A Tree is shared UI state: one *Tree may be
+// rendered by many requests, each getting its own element.
+func (t *Tree) JawsRender(elem *jaws.Element, w io.Writer, params []any) (err error) <span class="cov6" title="20">{
+        // Register the dirty tag and read the initial payload before the element freezes.
+        // Reading the selection under RLock keeps the payload consistent with the tag even
+        // if another request sharing this Tree mutates it concurrently.
+        elem.Tag(t)
+        attrs := elem.ApplyParams(params)
+        t.RLock()
+        initData := t.initPayloadLocked(elem.Jid().String())
+        t.RUnlock()
+
+        var b []byte
+        b = append(b, "\n&lt;div id="...)
+        b = elem.Jid().AppendQuote(b)
+        b = htmlio.AppendAttrs(b, attrs)
+        b = append(b, " hidden&gt;&lt;/div&gt;"...)
+        if _, err = w.Write(b); err == nil </span><span class="cov5" title="19">{
+                elem.JsCall("jawstreeInit", initData)
+        }</span>
+        <span class="cov6" title="20">return</span>
+}
+
+// JawsUpdate pushes the current selection to this element's client.
+//
+// It is safe to call concurrently with the browser event handling that mutates
+// selection, and never rebuilds the tree, so the client's local expansion state is
+// preserved.
+func (t *Tree) JawsUpdate(elem *jaws.Element) <span class="cov10" title="207">{
+        t.RLock()
+        payload := t.selectionPayloadLocked(elem.Jid().String())
+        t.RUnlock()
+        elem.JsCall("jawstreeSelection", payload)
+}</span>
+
+// JawsInput applies a browser selection change to the shared Tree.
+//
+// On a real change it dirties the Tree so every rendered client reconverges. On a
+// rejected, malformed, or no-op change it resynchronizes only the originating client,
+// whose optimistic view may be ahead of the server, leaving peers untouched. It
+// always returns nil: a routine client rejection is logged, not surfaced as an alert.
+func (t *Tree) JawsInput(elem *jaws.Element, value string) error <span class="cov10" title="207">{
+        var msg struct {
+                D *struct {
+                        Add    []int `json:"add"`
+                        Remove []int `json:"remove"`
+                } `json:"d"`
+                S *[]int `json:"s"`
+                B string `json:"b"`
+        }
+        var err error
+        changed := false
+        if err = json.Unmarshal([]byte(value), &amp;msg); err == nil </span><span class="cov9" title="206">{
+                t.Lock()
+                switch </span>{
+                case msg.D != nil:<span class="cov9" title="202">
+                        changed, err = t.applyClientDelta(msg.D.Add, msg.D.Remove)</span>
+                case msg.S != nil:<span class="cov2" title="2">
+                        changed, err = t.applyClientAbsolute(*msg.S)</span>
+                case msg.B != "":<span class="cov1" title="1">
+                        var indices []int
+                        if indices, err = decodeSelectionBitmap(msg.B, len(t.byIndex)); err == nil </span><span class="cov1" title="1">{
+                                changed, err = t.applyClientAbsolute(indices)
+                        }</span>
+                default:<span class="cov1" title="1">
+                        err = fmt.Errorf("%w: empty selection payload", ErrPathRejected)</span>
+                }
+                <span class="cov9" title="206">t.Unlock()</span>
+        } else<span class="cov1" title="1"> {
+                err = fmt.Errorf("%w: malformed payload: %v", ErrPathRejected, err)
+        }</span>
+
+        <span class="cov10" title="207">if err == nil &amp;&amp; changed </span><span class="cov9" title="161">{
+                // Fan the new authoritative selection out to every rendered client, including
+                // this one, where the reconcile is an idempotent no-op.
+                elem.Dirty(t)
+                return nil
+        }</span>
+        // A reject, malformed frame, or no-op: the origin's optimistic DOM may be ahead of
+        // the server, so snap only this origin back to the authoritative selection.
+        <span class="cov7" title="46">if err != nil </span><span class="cov2" title="3">{
+                _ = elem.Jaws.Log(err)
+        }</span>
+        <span class="cov7" title="46">t.RLock()
+        payload := t.selectionPayloadLocked(elem.Jid().String())
+        t.RUnlock()
+        elem.JsCall("jawstreeSelection", payload)
+        // Return nil so a routine client reject is not turned into a browser alert by the
+        // event loop; it has been logged and the origin resynchronized.
+        return nil</span>
+}
+</pre>
+		
+		<pre class="file" id="file2" style="display: none">package jawstree
+
+import (
+        "errors"
+        "io/fs"
+        "os"
+        "path"
+)
+
+// Root builds a root node from an [os.Root]. It panics if r is nil.
+//
+// If filterFn is not nil, a directory entry is included only when filterFn returns
+// true for it. Entries that are neither regular files nor directories (such as
+// symbolic links) are always excluded, regardless of filterFn.
+//
+// Building the tree is best-effort: if one or more directories cannot be read, Root
+// returns the tree built from the readable entries together with a non-nil error
+// joining every read failure (see [errors.Join]). A directory whose own listing fails to
+// read is omitted from its parent, but its readable siblings — and the readable entries
+// of any directory with a deeper failure — are kept.
+//
+// The returned nodes have no parent back-pointers and are not yet prepared for
+// rendering; pass the tree to [New], which assigns node identities and the parent
+// back-pointers the name-path helpers need.
+func Root(r *os.Root, filterFn func(dirpath string, ent fs.DirEntry) (include bool)) (rootnode *Node, err error) <span class="cov1" title="2">{
+        if r == nil </span><span class="cov1" title="1">{
+                panic("jawstree.Root: r must not be nil")</span>
+        }
+        <span class="cov1" title="1">rootnode = &amp;Node{}
+        err = getNodes(r.FS(), rootnode, ".", filterFn)
+        return</span>
+}
+
+// getNodes reads dirpath from rootfs and appends its readable entries to parent.
+func getNodes(rootfs fs.FS, parent *Node, dirpath string, filterFn func(dirpath string, ent fs.DirEntry) (include bool)) (err error) <span class="cov3" title="6">{
+        var ents []fs.DirEntry
+        if ents, err = fs.ReadDir(rootfs, dirpath); err == nil </span><span class="cov2" title="5">{
+                err = addEntries(rootfs, parent, dirpath, ents, filterFn)
+        }</span>
+        <span class="cov3" title="6">return</span>
+}
+
+// addEntries appends the readable entries in ents (the already-read listing of dirpath)
+// to parent; see [Root] for the best-effort inclusion rules.
+func addEntries(rootfs fs.FS, parent *Node, dirpath string, ents []fs.DirEntry, filterFn func(dirpath string, ent fs.DirEntry) (include bool)) (err error) <span class="cov7" title="304">{
+        for _, ent := range ents </span><span class="cov10" title="2226">{
+                if filterFn == nil || filterFn(dirpath, ent) </span><span class="cov9" title="2225">{
+                        child := &amp;Node{
+                                Parent: parent,
+                                ID:     path.Join(parent.ID, ent.Name()),
+                                Name:   ent.Name(),
+                        }
+                        switch </span>{
+                        case ent.Type().IsRegular():<span class="cov9" title="1920">
+                                parent.Children = append(parent.Children, child)</span>
+                        case ent.IsDir():<span class="cov7" title="301">
+                                childpath := path.Join(dirpath, ent.Name())
+                                // Gate inclusion on this directory's own read, not on its
+                                // subtree: a deeper failure must not drop a readable directory.
+                                if subents, cerr := fs.ReadDir(rootfs, childpath); cerr == nil </span><span class="cov7" title="299">{
+                                        parent.Children = append(parent.Children, child)
+                                        err = errors.Join(err, addEntries(rootfs, child, childpath, subents, filterFn))
+                                }</span> else<span class="cov1" title="2"> {
+                                        err = errors.Join(err, cerr)
+                                }</span>
+                        }
+                }
+        }
+        <span class="cov7" title="304">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file3" style="display: none">package jawstree
+
+import (
+        "embed"
+        "errors"
+        "net/url"
+        "path"
+
+        "github.com/linkdata/jaws"
+        "github.com/linkdata/staticserve"
+)
+
+//go:embed assets
+var assetsFS embed.FS
+
+// treeview from https://github.com/stefaneichert/quercus.js
+
+// Setup registers embedded jawstree static assets under prefix.
+//
+// The prefix may be absolute ("/static"), relative ("static") or empty; the registered
+// handler paths and the returned URLs are kept identical in all cases.
+//
+// It is intended to be passed to [jaws.Jaws.Setup]. Returned URLs should be
+// included in the page head through [jaws.Jaws.GenerateHeadHTML].
+func Setup(jw *jaws.Jaws, handleFn jaws.HandleFunc, prefix string) (urls []*url.URL, err error) <span class="cov5" title="4">{
+        var files []*staticserve.StaticServe
+        if err = staticserve.WalkDir(assetsFS, "assets", func(filename string, ss *staticserve.StaticServe) (err error) </span><span class="cov10" title="16">{
+                files = append(files, ss)
+                return
+        }</span>); err == nil <span class="cov5" title="4">{
+                for _, ss := range files </span><span class="cov10" title="16">{
+                        // Build an absolute path so jaws.Setup's makeAbsPath leaves the returned
+                        // URL unchanged and it matches the handler pattern for any prefix form
+                        // (absolute, relative or empty). Returning the raw path.Join result would
+                        // let makeAbsPath re-apply a relative or empty prefix, diverging the head
+                        // URL from the registered handler path; mirror jawsboot.Setup, which
+                        // documents this.
+                        abspath := staticserve.EnsurePrefixSlash(path.Join(prefix, ss.Name))
+                        u, e := url.Parse(abspath)
+                        if e == nil </span><span class="cov10" title="16">{
+                                urls = append(urls, u)
+                                handleFn(staticserve.NormalizeGET(abspath), ss)
+                        }</span>
+                        <span class="cov10" title="16">err = errors.Join(err, e)</span>
+                }
+        }
+        <span class="cov5" title="4">return</span>
+}
+</pre>
+		
+		<pre class="file" id="file4" style="display: none">package jawstree
+
+import (
+        "encoding/base64"
+        "fmt"
+        "slices"
+        "strconv"
+        "sync"
+
+        "github.com/linkdata/jaws"
+        "github.com/linkdata/jaws/lib/bind"
+)
+
+// wsInboundLimit mirrors the jaws inbound WebSocket message limit (jaws' internal
+// webSocketReadLimit, 32 KiB): a single client-to-server frame must not exceed it,
+// or the connection is dropped. [MaxTreeNodes] is derived from it.
+const wsInboundLimit = 32 * 1024
+
+// MaxTreeNodes is the largest node count [New] accepts.
+//
+// It bounds the largest possible selection message, whose size grows with the node
+// count, to stay within the WebSocket size limit. [New] rejects a larger tree with
+// [ErrInvalidTree]; TestSelectionFrameFitsInboundLimit pins the guarantee.
+const MaxTreeNodes = 180000
+
+// MaxTreeDepth is the deepest nesting [New] accepts, measured in edges from the root
+// (the root is depth 0, its children depth 1).
+//
+// The browser renderer (the vendored Quercus.js treeview) recurses once per level, so
+// its stack use grows with the tree depth. A tree deeper than a browser can render is
+// rejected here with [ErrInvalidTree] so it never reaches the client. The bound is far
+// above any realistic UI nesting yet well below where the renderer's recursion
+// overflows.
+const MaxTreeDepth = 128
+
+// MaxTreeRenderBytes is the largest depth-weighted serialized node size [New] accepts:
+// the sum over all nodes of (depth+1) times the node's own wire size (its JSON-escaped
+// name, positional-path ID, and fixed structural bytes).
+//
+// The browser holds each node's whole serialized data — its potentially large
+// [Node.Name] included — in the init payload and in the data-node-data of every element
+// whose subtree contains it. The root is not rendered, so its data is held once (the
+// payload). A non-root node at depth d is held d+1 times: once in the payload, once on
+// its own element, and once on each of its d-1 rendered ancestors. Weighting each node
+// by depth+1 covers both cases. This depth-weighted sum is what the independent
+// [MaxTreeNodes] and [MaxTreeDepth] bounds do not cap: a shallow spine with a wide, deep
+// fan-out, or a deep chain of large names, passes them yet duplicates its data across
+// every level. [New] rejects a tree whose depth-weighted serialized size exceeds this
+// limit with [ErrInvalidTree].
+//
+// The bound is on the retained serialized node data (the per-element data plus the init
+// payload), which is a proxy for, not the exact size of, client memory: the renderer
+// also builds DOM from it, and cascade mode copies descendant data, so actual client
+// memory is a bounded multiple of this ceiling.
+const MaxTreeRenderBytes = 64 &lt;&lt; 20 // 64 MiB
+
+// nodeJSONOverhead upper-bounds a node's fixed structural wire bytes: the object
+// braces, the field keys, the quotes around the ID, the optional boolean flag values,
+// the children brackets, and its separator in its parent. Added to the escaped name and
+// ID length to weigh each node's retained serialized size against [MaxTreeRenderBytes].
+const nodeJSONOverhead = 80
+
+// Tree is the shared, server-authoritative model behind a Quercus.js tree, and the
+// [jaws.UI] that renders it.
+//
+// A Tree holds the node tree and the master selection state, guarded by the lock
+// passed to [New] (which the application may share with other state). A single Tree
+// is built once and rendered by every request that should show the same collaborative
+// tree; it holds no per-request state, so sharing it is safe.
+//
+// The tree is fixed once [New] returns: it derives each node's identity from its
+// position and validates the wire-shaping state against the [MaxTreeNodes],
+// [MaxTreeDepth], and [MaxTreeRenderBytes] bounds. Only the selection may change
+// afterward, through [Tree.SetSelected] or browser events (safe under the lock); each
+// node's Name, Disabled, assigned ID, and the topology (Children) are fixed. Changing any
+// of them is unsupported, with a different consequence per field: altering the topology
+// or an ID breaks the wire-index-to-node identity mapping; enlarging a Name defeats the
+// size bounds New enforced (rendering re-serializes the live tree); toggling Disabled can
+// desync the selection policy.
+type Tree struct {
+        bind.RWLocker         // guards root selection state and is the concurrency contract for Node accessors
+        options       Option  // feature flags, serialized to the browser initializer
+        root          *Node   // authoritative node tree; positional-path IDs assigned by New
+        byIndex       []*Node // preorder index -&gt; node; index 0 is root, the compact wire alias
+}
+
+// New returns a shared tree model for root, guarded by l.
+//
+// It returns [ErrInvalidTree] for a nil root, a cyclic or shared-node graph, a
+// negative or unknown [Option] bit, more than [MaxTreeNodes] nodes, nesting deeper than
+// [MaxTreeDepth], or depth-weighted serialized node data exceeding [MaxTreeRenderBytes],
+// and [ErrInvalidSelection] when the initial Selected flags violate the selection policy
+// (see [Tree.SetSelected]).
+//
+// New must run before rendering the Tree or using the name-path selection API. The
+// Tree renders its own container, so no caller-provided HTML id is required.
+func New(l sync.Locker, root *Node, options ...Option) (t *Tree, err error) <span class="cov3" title="75">{
+        if root == nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("%w: root must not be nil", ErrInvalidTree)
+        }</span>
+        <span class="cov3" title="74">var opts Option
+        for _, opt := range options </span><span class="cov3" title="36">{
+                opts |= opt
+        }</span>
+        <span class="cov3" title="74">if opts &lt; 0 </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("%w: options must be non-negative, got %d", ErrInvalidTree, int(opts))
+        }</span>
+        <span class="cov3" title="73">if opts&amp;^allOptions != 0 </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("%w: unknown option bits %d", ErrInvalidTree, int(opts&amp;^allOptions))
+        }</span>
+        <span class="cov3" title="72">t = &amp;Tree{
+                RWLocker: bind.AsRWLocker(l),
+                options:  opts,
+                root:     root,
+        }
+        // The root is identified throughout by a nil Parent; index() only sets
+        // descendants' Parent, so enforce the invariant for the root here (a node reused
+        // as a new root could otherwise carry a stale Parent).
+        root.Parent = nil
+        // index enforces MaxTreeNodes, MaxTreeDepth, and MaxTreeRenderBytes during traversal,
+        // so byIndex never exceeds the node cap and the depth and client-retained node data
+        // stay bounded.
+        if err = t.index(root, "", make(map[*Node]bool), new(int64), 0); err != nil </span><span class="cov2" title="8">{
+                return nil, err
+        }</span>
+        // Validate the initial selection through the same policy the browser and server
+        // mutators use, so construction can never produce a state the policy rejects.
+        <span class="cov3" title="64">want := make(map[*Node]bool)
+        for _, node := range t.byIndex </span><span class="cov9" title="182560">{
+                if node.Selected </span><span class="cov3" title="23">{
+                        want[node] = true
+                }</span>
+        }
+        <span class="cov3" title="64">if _, err = t.applySelection(want); err != nil </span><span class="cov2" title="6">{
+                return nil, err
+        }</span>
+        <span class="cov3" title="58">return t, nil</span>
+}
+
+// index assigns node's positional-path ID, appends it to byIndex, compacts away nil
+// children, sets child parent back-pointers, and rejects a cyclic or shared-node
+// graph. The seen set guards the recursion, so a cycle terminates with an error
+// rather than overflowing the stack. Compacting before descending keeps each node's
+// slice index (its ID) matching its position in the wire array emitted by
+// marshalJSON, which skips nils.
+//
+// The [MaxTreeNodes] cap is enforced before indexing each node, so an oversized
+// tree is rejected mid-traversal rather than after being fully indexed. This bounds
+// the recursion depth to MaxTreeNodes, so a pathologically deep (in particular
+// single-child) tree returns [ErrInvalidTree] instead of overflowing the stack.
+//
+// depth is node's distance from the root and renderBytes accumulates the depth-weighted
+// serialized node size assigned so far; index rejects the tree once depth exceeds
+// [MaxTreeDepth] or the weighted bytes exceed [MaxTreeRenderBytes], bounding the client
+// render depth and the client-retained node data (which the browser holds in the init
+// payload and on the node's own element plus each rendered ancestor's, [Node.Name]
+// included) of a tree that would otherwise stay within MaxTreeNodes.
+//
+// The count is int64 and the name is measured against the remaining budget, so a huge
+// name neither overflows the weighted product on a 32-bit build nor is encoded in full
+// before rejection.
+func (t *Tree) index(node *Node, jsPath string, seen map[*Node]bool, renderBytes *int64, depth int) error <span class="cov9" title="543351">{
+        if len(t.byIndex) &gt;= MaxTreeNodes </span><span class="cov1" title="2">{
+                return fmt.Errorf("%w: exceeds MaxTreeNodes (%d)", ErrInvalidTree, MaxTreeNodes)
+        }</span>
+        <span class="cov9" title="543349">if depth &gt; MaxTreeDepth </span><span class="cov1" title="1">{
+                return fmt.Errorf("%w: exceeds MaxTreeDepth (%d)", ErrInvalidTree, MaxTreeDepth)
+        }</span>
+        // The browser retains this node's whole wire object (name, ID, structure) in the init
+        // payload and, for a non-root node, on its own element plus its d-1 rendered ancestors:
+        // depth+1 copies (the unrendered root is held once, in the payload). Charge that,
+        // measuring the name only up to the budget that still fits so an over-long name is
+        // rejected without encoding all of it and the product cannot overflow.
+        <span class="cov9" title="543348">weight := int64(depth) + 1
+        budget := int64(MaxTreeRenderBytes) - *renderBytes
+        nameLen := jsonStringLen(node.Name, budget/weight-int64(len(jsPath))-nodeJSONOverhead)
+        if *renderBytes += weight * (nameLen + int64(len(jsPath)) + nodeJSONOverhead); *renderBytes &gt; MaxTreeRenderBytes </span><span class="cov1" title="4">{
+                return fmt.Errorf("%w: depth-weighted serialized node data exceeds MaxTreeRenderBytes (%d)", ErrInvalidTree, MaxTreeRenderBytes)
+        }</span>
+        <span class="cov9" title="543344">if seen[node] </span><span class="cov1" title="2">{
+                return fmt.Errorf("%w: node %q is reachable more than once (cyclic or shared graph)", ErrInvalidTree, node.Name)
+        }</span>
+        <span class="cov9" title="543342">seen[node] = true
+        node.ID = jsPath
+        t.byIndex = append(t.byIndex, node)
+        node.Children = slices.DeleteFunc(node.Children, func(c *Node) bool </span><span class="cov10" title="543719">{ return c == nil }</span>)
+        <span class="cov9" title="543342">if jsPath != "" </span><span class="cov9" title="543270">{
+                jsPath += "."
+        }</span>
+        <span class="cov9" title="543342">for i, child := range node.Children </span><span class="cov9" title="543278">{
+                child.Parent = node
+                if err := t.index(child, jsPath+"children."+strconv.Itoa(i), seen, renderBytes, depth+1); err != nil </span><span class="cov5" title="479">{
+                        return err
+                }</span>
+        }
+        <span class="cov9" title="542863">return nil</span>
+}
+
+// Dirty marks the Tree changed so every rendered view resynchronizes its client on
+// the next update pass. Call it after mutating selection server-side.
+func (t *Tree) Dirty(jw *jaws.Jaws) <span class="cov1" title="3">{
+        jw.Dirty(t)
+}</span>
+
+// strictSingle reports whether at most one node may be selected: neither
+// multi-select nor cascade is enabled.
+func (t *Tree) strictSingle() bool <span class="cov5" title="949">{
+        return t.options&amp;MultiSelectEnabled == 0 &amp;&amp; t.options&amp;CascadeSelectChildren == 0
+}</span>
+
+// cascadeOnly reports whether selection cascades without ordinary multi-select.
+func (t *Tree) cascadeOnly() bool <span class="cov5" title="926">{
+        return t.options&amp;MultiSelectEnabled == 0 &amp;&amp; t.options&amp;CascadeSelectChildren != 0
+}</span>
+
+// cascadeSelectionValid reports whether want is empty or one connected rooted
+// selection after disabled nodes are treated as transparent.
+//
+// The caller must first reject the root and disabled nodes from want. A selected
+// node begins a component when its nearest selectable parent is the hidden root or
+// is not selected; Quercus can represent the selection exactly when there is at
+// most one such component.
+func (t *Tree) cascadeSelectionValid(want map[*Node]bool) (valid bool) <span class="cov3" title="39">{
+        roots := 0
+        valid = true
+        for node := range want </span><span class="cov3" title="59">{
+                parent := node.Parent
+                for parent != nil &amp;&amp; parent != t.root &amp;&amp; parent.Disabled </span><span class="cov1" title="3">{
+                        parent = parent.Parent
+                }</span>
+                <span class="cov3" title="59">if parent == nil || parent == t.root || !want[parent] </span><span class="cov3" title="38">{
+                        roots++
+                        if roots &gt; 1 </span><span class="cov2" title="9">{
+                                valid = false
+                                return
+                        }</span>
+                }
+        }
+        <span class="cov3" title="30">return</span>
+}
+
+// applySelection sets the selection to exactly want and returns the changed nodes.
+//
+// It is the selection policy shared by [New], [Tree.SetSelected], and browser input.
+// It returns [ErrInvalidSelection] when want holds any node on a tree with
+// [NodeSelectionDisabled], more than one node in a single-select tree, a
+// disconnected cascade-only selection, or any disabled or root node. Callers on a
+// rendered Tree must hold the write lock.
+func (t *Tree) applySelection(want map[*Node]bool) (changed []*Node, err error) <span class="cov5" title="713">{
+        if t.options&amp;NodeSelectionDisabled != 0 &amp;&amp; len(want) &gt; 0 </span><span class="cov1" title="3">{
+                return nil, fmt.Errorf("%w: node selection is disabled", ErrInvalidSelection)
+        }</span>
+        <span class="cov5" title="710">if t.strictSingle() &amp;&amp; len(want) &gt; 1 </span><span class="cov1" title="3">{
+                return nil, fmt.Errorf("%w: single-select allows at most one node, got %d", ErrInvalidSelection, len(want))
+        }</span>
+        <span class="cov5" title="707">for node := range want </span><span class="cov5" title="406">{
+                if node == t.root </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("%w: the root node cannot be selected", ErrInvalidSelection)
+                }</span>
+                <span class="cov5" title="405">if node.Disabled </span><span class="cov1" title="1">{
+                        return nil, fmt.Errorf("%w: node %q is disabled", ErrInvalidSelection, node.ID)
+                }</span>
+        }
+        <span class="cov5" title="705">if t.cascadeOnly() &amp;&amp; !t.cascadeSelectionValid(want) </span><span class="cov2" title="5">{
+                return nil, fmt.Errorf("%w: cascade-only selection must form one rooted subtree", ErrInvalidSelection)
+        }</span>
+        <span class="cov5" title="700">for _, node := range t.byIndex </span><span class="cov9" title="183972">{
+                if node.Selected != want[node] </span><span class="cov5" title="590">{
+                        node.Selected = want[node]
+                        changed = append(changed, node)
+                }</span>
+        }
+        <span class="cov5" title="700">return</span>
+}
+
+// cascadeClientSelection reconstructs the selection made by one legacy
+// cascade-only add delta.
+//
+// Quercus clears the previous selection and selects one node plus all selectable
+// descendants. The delta can omit descendants that were already selected in the
+// client's baseline, so the added nodes identify the selected root but are not an
+// absolute selection by themselves.
+//
+// Indices from the remove delta do not participate in reconstruction: the result
+// replaces the whole selection, and the authoritative update reconciles the
+// originating client.
+//
+// The caller must pass at least one index after resolving every index and rejecting
+// disabled nodes.
+func (t *Tree) cascadeClientSelection(add []int) (want map[*Node]bool, err error) <span class="cov1" title="2">{
+        added := make(map[*Node]bool, len(add))
+        for _, i := range add </span><span class="cov1" title="4">{
+                added[t.byIndex[i]] = true
+        }</span>
+        <span class="cov1" title="2">var selectedRoot *Node
+        for node := range added </span><span class="cov1" title="4">{
+                hasAddedAncestor := false
+                for parent := node.Parent; parent != nil &amp;&amp; parent != t.root; parent = parent.Parent </span><span class="cov1" title="1">{
+                        if added[parent] </span><span class="cov1" title="1">{
+                                hasAddedAncestor = true
+                                break</span>
+                        }
+                }
+                <span class="cov1" title="4">if !hasAddedAncestor </span><span class="cov1" title="3">{
+                        if selectedRoot != nil </span><span class="cov1" title="1">{
+                                err = fmt.Errorf("%w: cascade-only add has disjoint roots", ErrPathRejected)
+                                return
+                        }</span>
+                        <span class="cov1" title="2">selectedRoot = node</span>
+                }
+        }
+        <span class="cov1" title="1">want = make(map[*Node]bool)
+        var selectSubtree func(*Node)
+        selectSubtree = func(node *Node) </span><span class="cov1" title="2">{
+                if !node.Disabled </span><span class="cov1" title="2">{
+                        want[node] = true
+                }</span>
+                <span class="cov1" title="2">for _, child := range node.Children </span><span class="cov1" title="1">{
+                        selectSubtree(child)
+                }</span>
+        }
+        <span class="cov1" title="1">selectSubtree(selectedRoot)
+        return</span>
+}
+
+// resolveIndex maps a wire index to a node, rejecting the root (index 0) and any
+// out-of-range index with [ErrPathRejected].
+func (t *Tree) resolveIndex(i int) (*Node, error) <span class="cov5" title="372">{
+        if i &lt;= 0 || i &gt;= len(t.byIndex) </span><span class="cov2" title="9">{
+                return nil, fmt.Errorf("%w: node index %d out of range", ErrPathRejected, i)
+        }</span>
+        <span class="cov5" title="363">return t.byIndex[i], nil</span>
+}
+
+// selectedSet returns the currently selected nodes as a set.
+func (t *Tree) selectedSet() map[*Node]bool <span class="cov4" title="221">{
+        sel := make(map[*Node]bool)
+        for _, node := range t.byIndex </span><span class="cov5" title="486">{
+                if node.Selected </span><span class="cov4" title="107">{
+                        sel[node] = true
+                }</span>
+        }
+        <span class="cov4" title="221">return sel</span>
+}
+
+// applyClientDelta merges an add/remove index delta into the selection under the
+// write lock, enforcing the policy, and reports whether anything changed.
+//
+// In a single-select tree the last valid add replaces the whole selection (the
+// authoritative "deselect previous"); with no add, a remove that hits the current
+// selection clears it and anything else is a no-op. Cascade-only and multi-select
+// deltas merge when the result remains representable. If a cascade-only add would
+// disconnect the selection, its legacy delta identifies and replaces the selected
+// subtree. This lets concurrent remove-only edits compose rather than clobber.
+func (t *Tree) applyClientDelta(add, remove []int) (changed bool, err error) <span class="cov4" title="230">{
+        var want map[*Node]bool
+        if t.strictSingle() </span><span class="cov2" title="12">{
+                var target *Node
+                for _, i := range add </span><span class="cov2" title="9">{
+                        var node *Node
+                        if node, err = t.resolveIndex(i); err != nil </span><span class="cov1" title="1">{
+                                return
+                        }</span>
+                        <span class="cov2" title="8">if node.Disabled </span><span class="cov1" title="1">{
+                                return false, fmt.Errorf("%w: node %q is disabled", ErrPathRejected, node.ID)
+                        }</span>
+                        <span class="cov2" title="7">target = node</span>
+                }
+                <span class="cov2" title="10">want = make(map[*Node]bool)
+                if target != nil </span><span class="cov2" title="7">{
+                        want[target] = true
+                }</span> else<span class="cov1" title="3"> {
+                        cur := t.selectedSet()
+                        cleared := false
+                        for _, i := range remove </span><span class="cov1" title="3">{
+                                var node *Node
+                                if node, err = t.resolveIndex(i); err != nil </span><span class="cov1" title="1">{
+                                        return
+                                }</span>
+                                <span class="cov1" title="2">if cur[node] </span><span class="cov1" title="1">{
+                                        cleared = true
+                                }</span>
+                        }
+                        <span class="cov1" title="2">if !cleared </span><span class="cov1" title="1">{
+                                want = cur // remove of a non-selected node: no-op
+                        }</span>
+                }
+        } else<span class="cov4" title="218"> {
+                want = t.selectedSet()
+                for _, i := range remove </span><span class="cov4" title="106">{
+                        var node *Node
+                        if node, err = t.resolveIndex(i); err != nil </span><span class="cov1" title="1">{
+                                return
+                        }</span>
+                        <span class="cov4" title="105">delete(want, node)</span>
+                }
+                <span class="cov4" title="217">for _, i := range add </span><span class="cov4" title="117">{
+                        var node *Node
+                        if node, err = t.resolveIndex(i); err != nil </span><span class="cov1" title="3">{
+                                return
+                        }</span>
+                        <span class="cov4" title="114">if node.Disabled </span><span class="cov1" title="1">{
+                                return false, fmt.Errorf("%w: node %q is disabled", ErrPathRejected, node.ID)
+                        }</span>
+                        <span class="cov4" title="113">want[node] = true</span>
+                }
+                <span class="cov4" title="213">if t.cascadeOnly() &amp;&amp; len(add) &gt; 0 &amp;&amp; !t.cascadeSelectionValid(want) </span><span class="cov1" title="2">{
+                        if want, err = t.cascadeClientSelection(add); err != nil </span><span class="cov1" title="1">{
+                                return
+                        }</span>
+                }
+        }
+        <span class="cov4" title="221">var chg []*Node
+        if chg, err = t.applySelection(want); err == nil </span><span class="cov4" title="219">{
+                changed = len(chg) &gt; 0
+        }</span>
+        <span class="cov4" title="221">return</span>
+}
+
+// applyClientAbsolute replaces the selection with exactly the given sparse or
+// bitmap indices under the write lock, enforcing the policy.
+func (t *Tree) applyClientAbsolute(indices []int) (changed bool, err error) <span class="cov2" title="13">{
+        want := make(map[*Node]bool, len(indices))
+        for _, i := range indices </span><span class="cov3" title="36">{
+                var node *Node
+                if node, err = t.resolveIndex(i); err != nil </span><span class="cov1" title="3">{
+                        return
+                }</span>
+                <span class="cov3" title="33">if node.Disabled </span><span class="cov1" title="1">{
+                        return false, fmt.Errorf("%w: node %q is disabled", ErrPathRejected, node.ID)
+                }</span>
+                <span class="cov3" title="32">want[node] = true</span>
+        }
+        <span class="cov2" title="9">if t.strictSingle() &amp;&amp; len(want) &gt; 1 </span><span class="cov1" title="1">{
+                return false, fmt.Errorf("%w: single-select selection has %d nodes", ErrPathRejected, len(want))
+        }</span>
+        <span class="cov2" title="8">if t.cascadeOnly() &amp;&amp; !t.cascadeSelectionValid(want) </span><span class="cov1" title="2">{
+                return false, fmt.Errorf("%w: cascade-only selection must form one rooted subtree", ErrPathRejected)
+        }</span>
+        <span class="cov2" title="6">var chg []*Node
+        if chg, err = t.applySelection(want); err == nil </span><span class="cov2" title="6">{
+                changed = len(chg) &gt; 0
+        }</span>
+        <span class="cov2" title="6">return</span>
+}
+
+// GetSelected returns the name-paths of all selected nodes.
+//
+// It reads under the read lock. Selection is reported by name-path, which is lossy
+// for duplicate sibling names; see [Node.GetSelected].
+func (t *Tree) GetSelected() (nameLists [][]string) <span class="cov4" title="214">{
+        t.RLock()
+        defer t.RUnlock()
+        nameLists = t.root.GetSelected()
+        return
+}</span>
+
+// SetSelected sets the selection to the nodes matching the given name-paths.
+//
+// It runs under the write lock and enforces the selection policy, returning
+// [ErrInvalidSelection] when the match violates it (for example matching more than
+// one node in a single-select tree, a disconnected selection with
+// [CascadeSelectChildren] but not [MultiSelectEnabled], or a disabled node). Matching
+// is by name-path and lossy for duplicate sibling names; see [Node.GetSelected].
+func (t *Tree) SetSelected(nameLists [][]string) (err error) <span class="cov5" title="422">{
+        t.Lock()
+        defer t.Unlock()
+        want := make(map[*Node]bool)
+        for _, node := range t.byIndex </span><span class="cov5" title="899">{
+                for _, names := range nameLists </span><span class="cov5" title="544">{
+                        if node.HasNames(names) </span><span class="cov4" title="237">{
+                                want[node] = true
+                                break</span>
+                        }
+                }
+        }
+        <span class="cov5" title="422">_, err = t.applySelection(want)
+        return</span>
+}
+
+// selectedIndexes returns the wire indices of the selected nodes under the read
+// lock. Index 0 (the root) is never included.
+func (t *Tree) selectedIndexes() (indexes []int) <span class="cov2" title="17">{
+        t.RLock()
+        defer t.RUnlock()
+        for i := 1; i &lt; len(t.byIndex); i++ </span><span class="cov3" title="54">{
+                if t.byIndex[i].Selected </span><span class="cov3" title="19">{
+                        indexes = append(indexes, i)
+                }</span>
+        }
+        <span class="cov2" title="17">return</span>
+}
+
+// Walk calls fn for the tree root and all descendants under the read lock; the
+// callback must not call methods that acquire the same tree lock.
+func (t *Tree) Walk(fn func(jsPath string, node *Node)) <span class="cov1" title="2">{
+        t.RLock()
+        defer t.RUnlock()
+        t.root.Walk("", fn)
+}</span>
+
+// initPayloadLocked builds the jawstreeInit JSON: the container Jid, the option
+// flags, and the full node tree (with current selection).
+// The caller must hold the read lock.
+func (t *Tree) initPayloadLocked(jidStr string) string <span class="cov3" title="23">{
+        var b []byte
+        b = append(b, `{"jid":`...)
+        b = strconv.AppendQuote(b, jidStr)
+        b = append(b, `,"options":`...)
+        b = strconv.AppendInt(b, int64(t.options), 10)
+        b = append(b, `,"data":`...)
+        b = t.root.marshalJSON(b)
+        b = append(b, '}')
+        return string(b)
+}</span>
+
+// selectionPayloadLocked builds the jawstreeSelection JSON carrying the target
+// element's Jid and the absolute selected-index set, choosing the smaller of a sparse
+// index list ("s") or a one-bit-per-node bitmap ("b"). The Jid lets the adapter
+// address the right widget when one Tree is rendered by several elements on a page.
+// The caller must hold the read lock.
+func (t *Tree) selectionPayloadLocked(jidStr string) string <span class="cov4" title="257">{
+        var idxs []int
+        for i := 1; i &lt; len(t.byIndex); i++ </span><span class="cov4" title="318">{
+                if t.byIndex[i].Selected </span><span class="cov4" title="146">{
+                        idxs = append(idxs, i)
+                }</span>
+        }
+        // Each sparse index costs at most a few bytes; the bitmap is fixed at ~N/6 bytes.
+        // Bound the sparse cost generously and pick the smaller wire form.
+        <span class="cov4" title="257">bitmapLen := base64.StdEncoding.EncodedLen((len(t.byIndex) + 7) / 8)
+        if len(idxs)*8 &lt; bitmapLen </span><span class="cov4" title="132">{
+                return t.sparsePayloadLocked(jidStr, idxs)
+        }</span>
+        <span class="cov4" title="125">return t.bitmapPayloadLocked(jidStr)</span>
+}
+
+func (t *Tree) sparsePayloadLocked(jidStr string, idxs []int) string <span class="cov4" title="133">{
+        var b []byte
+        b = append(b, `{"jid":`...)
+        b = strconv.AppendQuote(b, jidStr)
+        b = append(b, `,"s":[`...)
+        for i, idx := range idxs </span><span class="cov1" title="3">{
+                if i &gt; 0 </span><span class="cov1" title="2">{
+                        b = append(b, ',')
+                }</span>
+                <span class="cov1" title="3">b = strconv.AppendInt(b, int64(idx), 10)</span>
+        }
+        <span class="cov4" title="133">b = append(b, `]}`...)
+        return string(b)</span>
+}
+
+func (t *Tree) bitmapPayloadLocked(jidStr string) string <span class="cov4" title="125">{
+        buf := make([]byte, (len(t.byIndex)+7)/8)
+        for i := 1; i &lt; len(t.byIndex); i++ </span><span class="cov4" title="167">{
+                if t.byIndex[i].Selected </span><span class="cov4" title="146">{
+                        buf[i/8] |= 1 &lt;&lt; (uint(i) % 8)
+                }</span>
+        }
+        <span class="cov4" title="125">var b []byte
+        b = append(b, `{"jid":`...)
+        b = strconv.AppendQuote(b, jidStr)
+        b = append(b, `,"b":`...)
+        b = strconv.AppendQuote(b, base64.StdEncoding.EncodeToString(buf))
+        b = append(b, '}')
+        return string(b)</span>
+}
+
+// decodeSelectionBitmap decodes a base64 one-bit-per-node bitmap into the set node
+// indices, rejecting a malformed or wrong-length bitmap with [ErrPathRejected]. n is
+// the total node count (len of byIndex).
+func decodeSelectionBitmap(s string, n int) (indices []int, err error) <span class="cov2" title="11">{
+        var buf []byte
+        if buf, err = base64.StdEncoding.DecodeString(s); err != nil </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("%w: malformed bitmap: %v", ErrPathRejected, err)
+        }</span>
+        <span class="cov2" title="10">if want := (n + 7) / 8; len(buf) != want </span><span class="cov1" title="1">{
+                return nil, fmt.Errorf("%w: bitmap length %d, want %d", ErrPathRejected, len(buf), want)
+        }</span>
+        <span class="cov2" title="9">for i := 0; i &lt; n; i++ </span><span class="cov3" title="63">{
+                if buf[i/8]&amp;(1&lt;&lt;(uint(i)%8)) != 0 </span><span class="cov3" title="31">{
+                        indices = append(indices, i)
+                }</span>
+        }
+        <span class="cov2" title="9">return</span>
+}
+</pre>
+		
+		</div>
+	</body>
+	<script>
+	(function() {
+		var files = document.getElementById('files');
+		var visible;
+		files.addEventListener('change', onChange, false);
+		function select(part) {
+			if (visible)
+				visible.style.display = 'none';
+			visible = document.getElementById(part);
+			if (!visible)
+				return;
+			files.value = part;
+			visible.style.display = 'block';
+			location.hash = part;
+		}
+		function onChange() {
+			select(files.value);
+			window.scrollTo(0, 0);
+		}
+		if (location.hash != "") {
+			select(location.hash.substr(1));
+		}
+		if (!visible) {
+			select("file0");
+		}
+	})();
+	</script>
+</html>
