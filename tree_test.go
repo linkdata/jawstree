@@ -235,7 +235,7 @@ func TestTreeRenderEmitsContainerAndInit(t *testing.T) {
 	if !strings.Contains(rendered, `id="`+elem.Jid().String()+`"`) || !strings.Contains(rendered, " hidden></div>") {
 		t.Fatalf("rendered view is missing its managed Jid container: %q", rendered)
 	}
-	// The JsVar shadow model is gone: no data-jawsname/data-jawsdata, no per-render script.
+	// The tree renders without per-render bindings or scripts.
 	if strings.Contains(rendered, "data-jawsname") || strings.Contains(rendered, "data-jawsdata") {
 		t.Fatalf("rendered view still carries JsVar shadow wiring: %q", rendered)
 	}
@@ -263,7 +263,7 @@ func TestTreeRenderPreservesCallerParams(t *testing.T) {
 	jw, err := jaws.New()
 	maybeError(t, err)
 	defer jw.Close()
-	rq := jw.NewRequest(nil)
+	rq := jw.NewRequest(httptest.NewRecorder(), nil)
 
 	var mu deadlock.RWMutex
 	tree := mustNew(t, &mu, &Node{})
@@ -279,7 +279,7 @@ func TestTreeRenderDistinctIdentities(t *testing.T) {
 	jw, err := jaws.New()
 	maybeError(t, err)
 	defer jw.Close()
-	rq := jw.NewRequest(nil)
+	rq := jw.NewRequest(httptest.NewRecorder(), nil)
 
 	var mu deadlock.RWMutex
 	tree := mustNew(t, &mu, &Node{Children: []*Node{{Name: "one"}}})
