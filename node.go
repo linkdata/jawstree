@@ -63,7 +63,7 @@ func jsonStringLen(s string, limit int64) int64 {
 		}
 		switch r, size := utf8.DecodeRuneInString(s[i:]); {
 		case r == utf8.RuneError && size == 1:
-			n += 6 // invalid UTF-8 becomes the \ufffd escape
+			n += 3 // invalid UTF-8 becomes the UTF-8 encoding of U+FFFD
 			i++
 		case r == '\u2028' || r == '\u2029':
 			n += 6 // the JSON line/paragraph separators are escaped

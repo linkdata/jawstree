@@ -38,7 +38,7 @@ func TestSetup_PrefixVariants(t *testing.T) {
 				t.Fatal(err)
 			}
 
-			rq := jw.NewRequest(nil)
+			rq := jw.NewRequest(httptest.NewRecorder(), nil)
 			var sb strings.Builder
 			if err := (ui.RequestWriter{Request: rq, Writer: &sb}).HeadHTML(); err != nil {
 				t.Fatal(err)

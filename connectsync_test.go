@@ -11,16 +11,8 @@ import (
 	"github.com/linkdata/jaws"
 )
 
-// TestTree_DirtyReachesRequestPendingDuringChange proves the render→subscribe
-// atomicity the selection-sync design rests on: a Dirty issued while a Request is
-// pending — rendered, but its WebSocket processing loop not yet running — is buffered
-// in that Request's todoDirt and delivered on its first update pass once it connects,
-// carrying the current server state rather than the render-time snapshot.
-//
-// It exercises the jaws core dirty→distributeDirt→todoDirt→makeUpdateList→JawsUpdate
-// path (broadcast.go, requestloop.go, requestpool.go). The shared-Tree model relies
-// on this single dirty channel to reach late-joiners, so this test guards the
-// foundation.
+// TestTree_DirtyReachesRequestPendingDuringChange checks that a selection
+// changed after rendering reaches a Request when its WebSocket connects.
 func TestTree_DirtyReachesRequestPendingDuringChange(t *testing.T) {
 	jw, err := jaws.New()
 	maybeError(t, err)
@@ -34,7 +26,7 @@ func TestTree_DirtyReachesRequestPendingDuringChange(t *testing.T) {
 	// Render the request while it is PENDING. JawsRender registers the dirty tag on
 	// the element and folds the render-time selection (empty) into the initializer.
 	httpRequest := httptest.NewRequest(http.MethodGet, "/", nil)
-	rq := jw.NewRequest(httpRequest)
+	rq := jw.NewRequest(httptest.NewRecorder(), httpRequest)
 	elem := rq.NewElement(tree)
 	var body bytes.Buffer
 	maybeError(t, elem.JawsRender(&body, nil))
